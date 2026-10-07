@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goal Progress Widget</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #F7F2EA;
+            --text: #3D342C;
+            --accent: #A9825A;
+            --soft: #E9DFD1;
+            --muted: #8C7B6B;
+            --display: 'Cormorant Garamond', Georgia, serif;
+            --body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            font-family: var(--body);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .wrap { width: 100%; max-width: 620px; }
+
+        .head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .title {
+            font-family: var(--display);
+            font-size: 26px;
+            font-weight: 600;
+            line-height: 1.1;
+        }
+        .overall-pct {
+            font-family: var(--display);
+            font-size: 26px;
+            font-weight: 600;
+            color: var(--accent);
+            line-height: 1;
+        }
+        .overall-bar {
+            height: 4px;
+            border-radius: 999px;
+            background: var(--soft);
+            overflow: hidden;
+            margin-bottom: 18px;
+        }
+        .overall-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 999px;
+            transition: width .5s cubic-bezier(.2,.7,.2,1);
+        }
+
+        .goals { display: flex; flex-direction: column; gap: 16px; }
+
+        .goal-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 7px;
+        }
+        .goal-name {
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .goal-name span.txt {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .goal.done .goal-name span.txt {
+            text-decoration: line-through;
+            text-decoration-color: var(--accent);
+            text-decoration-thickness: 1.5px;
+        }
+        .goal-count {
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        /* Segmented milestones */
+        .segments { display: flex; gap: 4px; }
+        .seg {
+            flex: 1;
+            height: 12px;
+            border: none;
+            border-radius: 4px;
+            background: var(--soft);
+            cursor: pointer;
+            padding: 0;
+            transition: background .25s ease, transform .15s ease;
+        }
+        .seg:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+        .seg:last-child { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+        .seg.on { background: var(--goal, var(--accent)); }
+        .seg:hover { transform: scaleY(1.25); }
+        .seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* Stepper (for goals with many steps) */
+        .stepper { display: flex; align-items: center; gap: 8px; }
+        .stepper .track {
+            flex: 1;
+            height: 12px;
+            border-radius: 999px;
+            background: var(--soft);
+            overflow: hidden;
+        }
+        .stepper .fill {
+            height: 100%;
+            background: var(--goal, var(--accent));
+            border-radius: 999px;
+            transition: width .35s cubic-bezier(.2,.7,.2,1);
+        }
+        .step-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid var(--soft);
+            background: transparent;
+            color: var(--text);
+            font: 500 15px/1 var(--body);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .2s;
+        }
+        .step-btn:hover { background: var(--soft); }
+
+        .empty {
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        body.font-sans { --display: 'DM Sans', -apple-system, sans-serif; }
+        body.font-sans .title, body.font-sans .overall-pct { font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
+        body.font-hand { --display: 'Caveat', 'Bradley Hand', cursive; }
+        body.font-hand .title, body.font-hand .overall-pct { font-size: 30px; }
+
+        body.compact .goals { gap: 11px; }
+        body.compact .seg, body.compact .stepper .track { height: 8px; }
+        body.compact .goal-name { font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="head" id="head"></div>
+        <div class="overall-bar" id="overall-bar" hidden><div class="overall-fill" id="overall-fill"></div></div>
+        <div class="goals" id="goals"></div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+
+        function color(key, fallback) {
+            const v = (params.get(key) || '').trim();
+            if (v === 'transparent') return v;
+            return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ? v : fallback;
+        }
+        function isHex(v) { return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v || ''); }
+
+        let goals = [];
+        try {
+            goals = JSON.parse(params.get('goals') || '[]');
+        } catch (e) { goals = []; }
+        if (!Array.isArray(goals) || !goals.length) {
+            goals = [
+                { name: 'Read 12 books', emoji: '📚', steps: 12 },
+                { name: 'Launch the shop', emoji: '🛍️', steps: 4 },
+                { name: 'Run a 10K', emoji: '🏃‍♀️', steps: 5 }
+            ];
+        }
+        goals = goals.slice(0, 15).map(g => ({
+            name: String(g.name || 'Goal').slice(0, 80),
+            emoji: String(g.emoji || '').slice(0, 8),
+            steps: Math.min(50, Math.max(1, parseInt(g.steps, 10) || 4)),
+            color: isHex(g.color) ? g.color : ''
+        }));
+
+        const settings = {
+            title: params.has('title') ? params.get('title') : '2027 Goals',
+            showOverall: params.get('showOverall') !== 'false',
+            showCount: params.get('showCount') !== 'false',
+            compact: params.get('compact') === 'true',
+            font: ['serif', 'sans', 'hand'].includes(params.get('font')) ? params.get('font') : 'serif',
+            id: (params.get('id') || 'default').replace(/[^a-z0-9_-]/gi, '').slice(0, 40) || 'default'
+        };
+
+        const root = document.documentElement.style;
+        root.setProperty('--bg', color('bgColor', '#F7F2EA'));
+        root.setProperty('--text', color('textColor', '#3D342C'));
+        root.setProperty('--accent', color('accentColor', '#A9825A'));
+        root.setProperty('--soft', color('softColor', '#E9DFD1'));
+        root.setProperty('--muted', color('mutedColor', '#8C7B6B'));
+        document.body.classList.add('font-' + settings.font);
+        if (settings.compact) document.body.classList.add('compact');
+
+        // ---------- saved progress (per browser, keyed by goal name) ----------
+        const STORAGE_KEY = 'kds-goal-progress-' + settings.id;
+        let progress = {};
+        try { progress = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (e) { progress = {}; }
+
+        function save() {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
+        }
+        function getCount(g) {
+            return Math.min(g.steps, Math.max(0, parseInt(progress[g.name], 10) || 0));
+        }
+        function setCount(g, n) {
+            progress[g.name] = Math.min(g.steps, Math.max(0, n));
+            save();
+            render();
+        }
+
+        function el(tag, cls, text) {
+            const e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        }
+
+        const SEGMENT_LIMIT = 12;
+
+        function render() {
+            const head = document.getElementById('head');
+            const list = document.getElementById('goals');
+            head.innerHTML = '';
+            list.innerHTML = '';
+
+            // Overall = average of each goal's % so a 50-step goal doesn't swamp a 4-step one
+            const overall = goals.reduce((a, g) => a + getCount(g) / g.steps, 0) / goals.length * 100;
+
+            if (settings.title) head.appendChild(el('div', 'title', settings.title));
+            if (settings.showOverall) {
+                head.appendChild(el('div', 'overall-pct', Math.round(overall) + '%'));
+                document.getElementById('overall-bar').hidden = false;
+                document.getElementById('overall-fill').style.width = overall + '%';
+            }
+            if (!head.children.length) head.style.display = 'none';
+
+            goals.forEach(g => {
+                const count = getCount(g);
+                const row = el('div', 'goal' + (count >= g.steps ? ' done' : ''));
+                if (g.color) row.style.setProperty('--goal', g.color);
+
+                const top = el('div', 'goal-top');
+                const name = el('div', 'goal-name');
+                if (g.emoji) name.appendChild(el('span', 'emo', g.emoji));
+                name.appendChild(el('span', 'txt', g.name));
+                top.appendChild(name);
+                if (settings.showCount) top.appendChild(el('div', 'goal-count', count + ' / ' + g.steps));
+                row.appendChild(top);
+
+                if (g.steps <= SEGMENT_LIMIT) {
+                    const segs = el('div', 'segments');
+                    for (let i = 0; i < g.steps; i++) {
+                        const b = el('button', 'seg' + (i < count ? ' on' : ''));
+                        b.type = 'button';
+                        b.setAttribute('aria-label', g.name + ': step ' + (i + 1) + ' of ' + g.steps);
+                        // Tap a step to fill up to it; tap the last filled step again to undo it
+                        b.addEventListener('click', () => setCount(g, count === i + 1 ? i : i + 1));
+                        segs.appendChild(b);
+                    }
+                    row.appendChild(segs);
+                } else {
+                    const st = el('div', 'stepper');
+                    const minus = el('button', 'step-btn', '−');
+                    minus.type = 'button';
+                    minus.setAttribute('aria-label', 'Remove one from ' + g.name);
+                    minus.addEventListener('click', () => setCount(g, count - 1));
+                    const track = el('div', 'track');
+                    const fill = el('div', 'fill');
+                    fill.style.width = (count / g.steps * 100) + '%';
+                    track.appendChild(fill);
+                    const plus = el('button', 'step-btn', '+');
+                    plus.type = 'button';
+                    plus.setAttribute('aria-label', 'Add one to ' + g.name);
+                    plus.addEventListener('click', () => setCount(g, count + 1));
+                    st.append(minus, track, plus);
+                    row.appendChild(st);
+                }
+                list.appendChild(row);
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>
